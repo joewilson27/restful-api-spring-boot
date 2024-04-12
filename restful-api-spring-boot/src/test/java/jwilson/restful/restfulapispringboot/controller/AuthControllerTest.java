@@ -3,9 +3,12 @@ package jwilson.restful.restfulapispringboot.controller;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.LoginUserRequest;
+import jwilson.restful.restfulapispringboot.model.TokenResponse;
 import jwilson.restful.restfulapispringboot.model.WebResponse;
 import jwilson.restful.restfulapispringboot.repository.UserRepository;
+import jwilson.restful.restfulapispringboot.security.BCrypt;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,5 +59,65 @@ class AuthControllerTest {
         assertNotNull(response.getErrors());
       });
     }
+
+    @Test
+    void loginFailedWrongPassword() throws Exception {
+      User user = new User();
+      user.setName("Test");
+      user.setUsername("test");
+      user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+      userRepository.save(user);
+
+      LoginUserRequest request = new LoginUserRequest();
+      request.setUsername("test");
+      request.setPassword("wrong"); // we define wrong password here
+
+      mockMvc.perform(
+          post("/api/auth/login")
+                  .accept(MediaType.APPLICATION_JSON)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(request))
+      ).andExpectAll(
+        status().isUnauthorized()
+      ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+        assertNotNull(response.getErrors());
+      });
+    }
+
+    @Test
+    void loginSuccess() throws Exception {
+      User user = new User();
+      user.setName("Test");
+      user.setUsername("test");
+      user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+      userRepository.save(user);
+
+      LoginUserRequest request = new LoginUserRequest();
+      request.setUsername("test");
+      request.setPassword("secret");
+
+      mockMvc.perform(
+          post("/api/auth/login")
+              .accept(MediaType.APPLICATION_JSON)
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(request))
+      ).andExpectAll(
+        status().isOk()
+      ).andDo(result -> {
+        WebResponse<TokenResponse> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+        assertNull(response.getErrors());
+        assertNotNull(response.getData().getToken());
+        assertNotNull(response.getData().getExpiredAt());
+
+        User userDb = userRepository.findById("test").orElse(null);
+        assertNotNull(userDb);
+        assertEquals(userDb.getToken(), response.getData().getToken());
+        assertEquals(userDb.getTokenExpiredAt(), response.getData().getExpiredAt());
+      });
+    }
+
 
 }
