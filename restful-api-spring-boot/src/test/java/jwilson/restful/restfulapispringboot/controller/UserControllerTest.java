@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.RegisterUserRequest;
+import jwilson.restful.restfulapispringboot.model.UpdateUserRequest;
 import jwilson.restful.restfulapispringboot.model.UserResponse;
 import jwilson.restful.restfulapispringboot.model.WebResponse;
 import jwilson.restful.restfulapispringboot.repository.UserRepository;
@@ -199,4 +200,60 @@ class UserControllerTest {
     });
   }
 
+  @Test
+  void updateUserUnauthorized() throws Exception {
+    UpdateUserRequest request = new UpdateUserRequest();
+
+    mockMvc.perform(
+      patch("/api/users/current")
+          .accept(MediaType.APPLICATION_JSON)
+          .contentType(MediaType.APPLICATION_JSON)
+          .content(objectMapper.writeValueAsString(request))
+    ).andExpectAll(
+      status().isUnauthorized()
+    ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+
+      assertNotNull(response.getErrors());
+    });
+  }
+
+  @Test
+  void updateUserSuccess() throws Exception {
+    User user = new User();
+    user.setUsername("test");
+    user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+    user.setName("Test");
+    user.setToken("tokentest"); // example token we created earlier
+    user.setTokenExpiredAt(System.currentTimeMillis() + 10000000000L);
+    userRepository.save(user);
+    
+    UpdateUserRequest request = new UpdateUserRequest();
+    request.setName("TestUpdate");
+    request.setPassword("TestUpdate123");
+
+    mockMvc.perform(
+      patch("/api/users/current")
+          .accept(MediaType.APPLICATION_JSON)
+          .contentType(MediaType.APPLICATION_JSON)
+          .content(objectMapper.writeValueAsString(request))
+          .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+        WebResponse<UserResponse> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+
+      assertNull(response.getErrors());
+      // check response, make sure equals to data update
+      assertEquals("TestUpdate", response.getData().getName());
+      assertEquals("test", response.getData().getUsername());
+
+      // make sure password is equal
+      User userDb = userRepository.findById("test").orElse(null);
+      assertNotNull(userDb);
+      assertTrue(BCrypt.checkpw("TestUpdate123", userDb.getPassword())); // you know "TestUpdate123" is password that we had set above
+    });
+  }
 }
