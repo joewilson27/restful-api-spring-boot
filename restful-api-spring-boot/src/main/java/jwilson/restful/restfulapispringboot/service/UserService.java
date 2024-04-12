@@ -8,6 +8,7 @@ import org.springframework.web.server.ResponseStatusException;
 import jakarta.transaction.Transactional;
 import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.RegisterUserRequest;
+import jwilson.restful.restfulapispringboot.model.UserResponse;
 import jwilson.restful.restfulapispringboot.repository.UserRepository;
 import jwilson.restful.restfulapispringboot.security.BCrypt;
 
@@ -36,5 +37,12 @@ public class UserService {
 
     userRepository.save(user);
   }
+
+  public UserResponse get(User user) {
+    return UserResponse.builder()
+            .username(user.getUsername())
+            .name(user.getName())
+            .build();
+  } 
 
 }

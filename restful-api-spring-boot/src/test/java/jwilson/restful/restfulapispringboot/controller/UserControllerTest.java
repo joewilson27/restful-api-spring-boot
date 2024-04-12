@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.RegisterUserRequest;
+import jwilson.restful.restfulapispringboot.model.UserResponse;
 import jwilson.restful.restfulapispringboot.model.WebResponse;
 import jwilson.restful.restfulapispringboot.repository.UserRepository;
 import jwilson.restful.restfulapispringboot.security.BCrypt;
@@ -112,4 +113,90 @@ class UserControllerTest {
           assertNotNull(response.getErrors());
     });
   }
+
+  @Test
+  void getUserUnauthorized() throws Exception {
+    mockMvc.perform(
+      get("/api/users/current")
+        .accept(MediaType.APPLICATION_JSON)
+        .header("X-API-TOKEN", "notfound") // for error purpose. then added false token
+    ).andExpectAll(
+      status().isUnauthorized()
+    ).andDo(result -> {
+      WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {});
+
+      assertNotNull(response.getErrors());
+    });
+  }
+
+  @Test
+  void getUserUnauthorizedTokenNotSend() throws Exception {
+    // here, we test request get users without token
+    mockMvc.perform(
+      get("/api/users/current")
+        .accept(MediaType.APPLICATION_JSON)
+    ).andExpectAll(
+            status().isUnauthorized()
+    ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+
+        assertNotNull(response.getErrors());
+    });
+  }
+
+  @Test
+  void getUserSuccess() throws Exception {
+    User user = new User();
+    user.setUsername("test");
+    user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+    user.setName("Test");
+    user.setToken("tokentest"); // example token we created earlier
+    user.setTokenExpiredAt(System.currentTimeMillis() + 10000000000L);
+    userRepository.save(user);
+
+    mockMvc.perform(
+      get("/api/users/current")
+        .accept(MediaType.APPLICATION_JSON)
+        .header("X-API-TOKEN", "tokentest")
+        
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+        WebResponse<UserResponse> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+
+        // make sure no error
+        assertNull(response.getErrors());
+        // make sure response and example data are equals 
+        assertEquals("test", response.getData().getUsername());
+        assertEquals("Test", response.getData().getName());
+    });
+  }
+
+  @Test
+  void getUserTokenExpired() throws Exception {
+    User user = new User();
+    user.setUsername("test");
+    user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+    user.setName("Test");
+    user.setToken("tokentest"); // example token we created earlier
+    user.setTokenExpiredAt(System.currentTimeMillis() - 10000000); // and fill expired date for this user
+    userRepository.save(user);
+
+    mockMvc.perform(
+      get("/api/users/current")
+        .accept(MediaType.APPLICATION_JSON)
+        .header("X-API-TOKEN", "tokentest")
+        
+    ).andExpectAll(
+      status().isUnauthorized()
+    ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+
+        assertNotNull(response.getErrors());
+    });
+  }
+
 }
