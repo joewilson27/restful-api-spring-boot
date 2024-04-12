@@ -33,7 +33,7 @@ class UserControllerTest {
   @Autowired
   private ObjectMapper objectMapper;
 
-  @BeforeEach
+  @BeforeEach // delete data before run for testing
   void setup() {
     userRepository.deleteAll();
   }
