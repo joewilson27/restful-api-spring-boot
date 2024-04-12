@@ -114,6 +114,7 @@ class AuthControllerTest {
 
         User userDb = userRepository.findById("test").orElse(null);
         assertNotNull(userDb);
+        // make sure data from table is equal to data response
         assertEquals(userDb.getToken(), response.getData().getToken());
         assertEquals(userDb.getTokenExpiredAt(), response.getData().getExpiredAt());
       });
