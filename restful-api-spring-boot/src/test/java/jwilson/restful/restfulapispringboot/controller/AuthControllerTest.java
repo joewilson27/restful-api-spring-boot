@@ -120,5 +120,53 @@ class AuthControllerTest {
       });
     }
 
+    @Test
+    void logoutFailed() throws Exception {
+      mockMvc.perform(
+        delete("/api/auth/logout")
+          .accept(MediaType.APPLICATION_JSON)
+      ).andExpectAll(
+        status().isUnauthorized()
+      ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+        assertNotNull(response.getErrors());
+      });
+    }
+
+    @Test
+    void logoutSuccess() throws Exception {
+      User user = new User();
+      user.setUsername("test");
+      user.setName("Name");
+      user.setPassword(BCrypt.hashpw("secret", BCrypt.gensalt()));
+      user.setToken("tokentest");
+      user.setTokenExpiredAt(System.currentTimeMillis() + 10000000000L);
+      userRepository.save(user);
+
+      mockMvc.perform(
+        delete("/api/auth/logout")
+          .accept(MediaType.APPLICATION_JSON)
+          .header("X-API-TOKEN", "tokentest")
+      ).andExpectAll(
+        status().isOk()
+      ).andDo(result -> {
+        WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {
+        });
+        assertNull(response.getErrors());
+        assertEquals("OK", response.getData());
+
+        // then, we'd better to make sure token and expiredat are null
+        User userDb = new User();
+        assertNotNull(userDb);
+        // you can do check like these:
+        //assertEquals(userDb.getTokenExpiredAt(), null);
+        //assertEquals(userDb.getToken(), null);
+        // or like these:
+        assertNull(userDb.getTokenExpiredAt());
+        assertNull(userDb.getToken());
+      });
+    }
+
 
 }
