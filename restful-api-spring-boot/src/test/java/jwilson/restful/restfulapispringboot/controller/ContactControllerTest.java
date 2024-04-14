@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
@@ -23,6 +25,7 @@ import jwilson.restful.restfulapispringboot.entity.Contact;
 import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.ContactResponse;
 import jwilson.restful.restfulapispringboot.model.CreateContactRequest;
+import jwilson.restful.restfulapispringboot.model.UpdateContactRequest;
 import jwilson.restful.restfulapispringboot.model.WebResponse;
 import jwilson.restful.restfulapispringboot.repository.ContactRepository;
 import jwilson.restful.restfulapispringboot.repository.UserRepository;
@@ -161,6 +164,72 @@ class ContactControllerTest {
       assertEquals(contact.getLastName(), response.getData().getLastName());
       assertEquals(contact.getEmail(), response.getData().getEmail());
       assertEquals(contact.getPhone(), response.getData().getPhone());
+    });
+  }
+
+  @Test
+  void updateContactBadRequest() throws Exception {
+    UpdateContactRequest request = new UpdateContactRequest();
+    request.setFirstName(""); // fill blank for testing
+    request.setEmail("wrong"); // fill invalid email address
+
+    mockMvc.perform(
+      put("/api/contacts/1234")
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .content(objectMapper.writeValueAsString(request))
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isBadRequest()
+    ).andDo(result -> {
+      WebResponse<String> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<String>>() {});
+
+      assertNotNull(response.getErrors());
+    });
+  }
+
+  @Test
+  void updateContactSuccess() throws Exception {
+    // call current user
+    User user = userRepository.findById("test").orElseThrow();
+
+    // make sure we have created contact before updating
+    Contact contact = new Contact();
+    contact.setId(UUID.randomUUID().toString());
+    contact.setUser(user);
+    contact.setFirstName("Joe");
+    contact.setLastName("Wilson");
+    contact.setEmail("joevampire27@gmail.com");
+    contact.setPhone("081284081237");
+    contactRepository.save(contact);
+
+    UpdateContactRequest request = new UpdateContactRequest();
+    request.setFirstName("Nikola");
+    request.setLastName("Tesla");
+    request.setEmail("tesla@gmail.com");
+    request.setPhone("08123123324");
+
+    mockMvc.perform(
+      put("/api/contacts/" + contact.getId())
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .content(objectMapper.writeValueAsString(request))
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<ContactResponse> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<ContactResponse>>() {}); // still work with this generic WebResponse
+      // WebResponse<ContactResponse> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<>() {});
+
+      assertNull(response.getErrors());
+      // check response, must be equal as data we are created
+      assertEquals(request.getFirstName(), response.getData().getFirstName());
+      assertEquals(request.getLastName(), response.getData().getLastName());
+      assertEquals(request.getEmail(), response.getData().getEmail());
+      assertEquals(request.getPhone(), response.getData().getPhone());
+
+      // make sure data has been inserted in table
+      assertTrue(contactRepository.existsById(response.getData().getId()));
     });
   }
 

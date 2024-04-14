@@ -9,6 +9,7 @@ import jwilson.restful.restfulapispringboot.entity.Contact;
 import jwilson.restful.restfulapispringboot.entity.User;
 import jwilson.restful.restfulapispringboot.model.ContactResponse;
 import jwilson.restful.restfulapispringboot.model.CreateContactRequest;
+import jwilson.restful.restfulapispringboot.model.UpdateContactRequest;
 import jwilson.restful.restfulapispringboot.repository.ContactRepository;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.UUID;
@@ -52,6 +53,22 @@ public class ContactService {
   public ContactResponse get(User user, String id) {
     Contact contact = contactRepository.findFirstByUserAndId(user, id)
                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
+
+    return toContactResponse(contact);
+  }
+
+  @Transactional
+  public ContactResponse update(User user, UpdateContactRequest request) {
+    validationService.validate(request);
+
+    Contact contact = contactRepository.findFirstByUserAndId(user, request.getId())
+                                       .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
+                 
+    contact.setFirstName(request.getFirstName());
+    contact.setLastName(request.getLastName());
+    contact.setEmail(request.getEmail());
+    contact.setPhone(request.getPhone());
+    contactRepository.save(contact);
 
     return toContactResponse(contact);
   }
