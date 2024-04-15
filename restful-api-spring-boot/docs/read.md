@@ -2,7 +2,7 @@
 https://www.youtube.com/watch?v=eFIBOVXilK4&ab_channel=ProgrammerZamanNow
 
 # Current
-02:57:00
+03:18:00
 
 # Notes
 google search = spring security Bcrypt javadoc

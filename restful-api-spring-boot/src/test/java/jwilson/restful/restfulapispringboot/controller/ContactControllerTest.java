@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -276,6 +277,140 @@ class ContactControllerTest {
       assertNull(response.getErrors());
       assertEquals("OK", response.getData());
     });
+  }
+
+  @Test
+  void searchNotFound() throws Exception {
+    mockMvc.perform(
+      get("/api/contacts")
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(0, response.getData().size());
+      assertEquals(0, response.getPaging().getCurrentPage());
+      assertEquals(0, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+  }
+
+  @Test
+  void searchSuccess() throws Exception {
+    User user = userRepository.findById("test").orElseThrow();
+
+    // create dummy contact to search for
+    for (int i = 0; i < 100; i++) {
+      Contact contact = new Contact();
+      contact.setId(UUID.randomUUID().toString());
+      contact.setUser(user);
+      contact.setFirstName("Joe " + i);
+      contact.setLastName("Wilson");
+      contact.setEmail("joevampire27"+i+"@gmail.com");
+      contact.setPhone("081284081237");
+      contactRepository.save(contact);
+    }
+
+    // search by firstName
+    mockMvc.perform(
+      get("/api/contacts")
+        .queryParam("name", "Joe") // searching using like
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(10, response.getData().size()); // we have 100 data with name joe, but page size is 10
+      assertEquals(0, response.getPaging().getCurrentPage());
+      assertEquals(10, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+
+    // search by lastName
+    mockMvc.perform(
+      get("/api/contacts")
+        .queryParam("name", "Wilson") // searching using like
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(10, response.getData().size()); // we have 100 data with name joe, but page size is 10
+      assertEquals(0, response.getPaging().getCurrentPage());
+      assertEquals(10, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+
+    // search by email
+    mockMvc.perform(
+      get("/api/contacts")
+        .queryParam("email", "gmail.com") // searching using like
+       .accept(MediaType.APPLICATION_JSON)
+       .contentType(MediaType.APPLICATION_JSON)
+       .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(10, response.getData().size()); // we have 100 data with name joe, but page size is 10
+      assertEquals(0, response.getPaging().getCurrentPage());
+      assertEquals(10, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+
+    // search by phone
+    mockMvc.perform(
+      get("/api/contacts")
+        .queryParam("phone", "08128408") // searching using like
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(10, response.getData().size()); 
+      assertEquals(0, response.getPaging().getCurrentPage());
+      assertEquals(10, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+
+    // search by page
+    mockMvc.perform(
+      get("/api/contacts")
+        .queryParam("phone", "08128408") // searching using like
+        .queryParam("page", "1000")
+        .accept(MediaType.APPLICATION_JSON)
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("X-API-TOKEN", "tokentest")
+    ).andExpectAll(
+      status().isOk()
+    ).andDo(result -> {
+      WebResponse<List<ContactResponse>> response = objectMapper.readValue(result.getResponse().getContentAsString(), new TypeReference<WebResponse<List<ContactResponse>>>() {});
+
+      assertNull(response.getErrors());
+      assertEquals(0, response.getData().size()); 
+      assertEquals(1000, response.getPaging().getCurrentPage());
+      assertEquals(10, response.getPaging().getTotalPage());
+      assertEquals(10, response.getPaging().getSize());
+    });
+
   }
 
 }

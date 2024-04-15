@@ -4,17 +4,33 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.transaction.annotation.Transactional;
 import jwilson.restful.restfulapispringboot.entity.Contact;
 import jwilson.restful.restfulapispringboot.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import jwilson.restful.restfulapispringboot.model.ContactResponse;
 import jwilson.restful.restfulapispringboot.model.CreateContactRequest;
+import jwilson.restful.restfulapispringboot.model.SearchContactRequest;
 import jwilson.restful.restfulapispringboot.model.UpdateContactRequest;
 import jwilson.restful.restfulapispringboot.repository.ContactRepository;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.web.server.ResponseStatusException;
+
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class ContactService {
   
   @Autowired
@@ -49,7 +65,7 @@ public class ContactService {
                         .build();
   }
 
-  @Transactional(readOnly = true)// because we only read data here
+  @Transactional(readOnly = true) // because we only read data here
   public ContactResponse get(User user, String id) {
     Contact contact = contactRepository.findFirstByUserAndId(user, id)
                                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
@@ -80,5 +96,44 @@ public class ContactService {
          
     contactRepository.delete(contact);                                      
   }
+
+  @Transactional(readOnly = true) // because we only read data here
+  public Page<ContactResponse> search(User user, SearchContactRequest request) {
+    log.info("Search Request : {}", request);
+    Specification<Contact> specification = (root, query, builder) -> {
+      List<Predicate> predicates = new ArrayList<>();
+      predicates.add(builder.equal(root.get("user"), user)); // make sure user
+      // start the query searching
+      // name
+      if (Objects.nonNull(request.getName())) {
+        // because, name is consist of firstName and lastName, so we are using this approach
+        predicates.add(builder.or(
+          builder.like(root.get("firstName"), "%"+request.getName()+"%"),
+          builder.like(root.get("lastName"), "%"+request.getName()+"%")
+        ));
+      }
+      // email
+      if (Objects.nonNull(request.getEmail())) {
+        predicates.add(builder.like(root.get("email"), "%"+request.getEmail()+"%"));
+      }
+      // phone
+      if (Objects.nonNull(request.getPhone())) {
+        predicates.add(builder.like(root.get("phone"), "%"+request.getPhone()+"%"));
+      }
+
+      return query.where(predicates.toArray(new Predicate[]{})).getRestriction();
+    };
+
+    Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+    Page<Contact> contacts = contactRepository.findAll(specification, pageable);
+
+    List<ContactResponse> contactResponses = contacts.getContent().stream()
+                                                     .map(this::toContactResponse) // short than .map(contact -> toContactResponse(contact))
+                                                     .toList(); // short than .collect(Collectors.toList());
+  
+    return new PageImpl<>(contactResponses, pageable, contacts.getTotalElements());
+  }
+
+
 
 }
