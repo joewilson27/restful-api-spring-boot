@@ -17,5 +17,5 @@ public interface ContactRepository extends JpaRepository<Contact, String>, JpaSp
 }
 
 /**
- * JpaSpecificationExecutor -> for handling dynamic params request (for this example we use: name, email, phone to look for the data)
+ * JpaSpecificationExecutor<> -> for handling dynamic params request (for this example we use: name, email, phone to look for the data)
  */

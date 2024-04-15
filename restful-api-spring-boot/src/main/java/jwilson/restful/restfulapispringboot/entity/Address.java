@@ -33,7 +33,7 @@ public class Address {
   @Column(name = "postal_code")
   private String postalCode;
 
-  @ManyToOne
+  @ManyToOne // banyak address bisa milik satu contact
   @JoinColumn(name = "contact_id", referencedColumnName = "id")
   private Contact contact;
 
