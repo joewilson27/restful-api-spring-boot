@@ -43,12 +43,18 @@ public class UserArgumentResolver implements HandlerMethodArgumentResolver {
       User user = userRepository.findFirstByToken(token)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized"));
       log.info("USER {}", user);
+      log.info("USER name {}", user.getName());
+      log.info("USER username {}", user.getUsername());
                 
       // throw error if token is expired
+      log.info("getTokenExpiredAt {}", user.getTokenExpiredAt());
+      log.info("currentTimeMillis {}", System.currentTimeMillis());
       if (user.getTokenExpiredAt() < System.currentTimeMillis()) {
+        log.info("catch err expired");
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
       }
 
+      log.info("send this username {}", user.getUsername());
       return user;
   }
 
